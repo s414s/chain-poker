@@ -1,12 +1,17 @@
-﻿using System.Security.Cryptography;
+﻿using ProtoBuf;
+using System.Security.Cryptography;
 
 namespace ChainPoker.Application.Crypto;
 
+[ProtoContract]
 public class Transaction
 {
+    [ProtoMember(1)]
     public required int Version { get; init; }
-    public required TransactionInput[] TransactionInputs { get; init; }
-    public required TransactionOutput[] TransactionOutputs { get; init; }
+    [ProtoMember(2)]
+    public required TransactionInput[] Inputs { get; init; }
+    [ProtoMember(3)]
+    public required TransactionOutput[] Outputs { get; init; }
 
     public byte[] HashTransaction()
     {
@@ -14,25 +19,88 @@ public class Transaction
 
         return SHA256.HashData(input);
     }
+
+    public byte[] HashTransactionCore()
+    {
+        var signable = new Transaction
+        {
+            Version = Version,
+            Inputs = [.. Inputs.Select(i => i with { Signature = null })], // IMPORTANT: exclude from hash
+            Outputs = [.. Outputs.Select(o => o)],
+        };
+
+        // Ensure your serializer is deterministic!
+        var bytes = ProtoHelper.ProtoSerialize(signable);
+        return SHA256.HashData(bytes);
+    }
+
+    // returns a signature
+    public byte[] Sign(PrivateKey pk) => pk.Sign(HashTransactionCore());
+    //public byte[] Sign(PrivateKey pk) => pk.Sign(HashTransaction());
+
+
+    //public bool Verify()
+    //{
+    //    foreach (var input in Inputs)
+    //    {
+    //        if (input.Signature is null)
+    //            return false;
+
+    //        var sig = new Signature(input.Signature);
+    //        var pubKey = new PublicKey(input.PublicKey);
+
+    //        if (!sig.Verify(pubKey, HashTransaction()))
+    //            return false;
+    //    }
+
+    //    return true;
+    //}
+
+    public bool Verify()
+    {
+        var sighash = HashTransactionCore();
+
+        foreach (var input in Inputs)
+        {
+            if (input.Signature is null)
+                return false;
+
+            var sig = new Signature(input.Signature);
+            var pub = new PublicKey(input.PublicKey);
+
+            if (!sig.Verify(pub, sighash))
+                return false;
+        }
+
+        return true;
+    }
 }
 
+[ProtoContract]
 public record TransactionInput
 {
     /// <summary>
     /// The previous hash of the transation containing the output we want to spend
     /// </summary>
+    [ProtoMember(1)]
     public required byte[] PrevTxHash { get; init; }
     /// <summary>
     /// The index of the output of the previous transaction we wat to spend
     /// </summary>
-    public required uint PrevOutTx { get; init; }
+    [ProtoMember(2)]
+    public required uint PrevOutTxIndex { get; init; }
+    [ProtoMember(3)]
     public required byte[] PublicKey { get; init; }
-    public required byte[] Signature { get; init; }
+    [ProtoMember(4)]
+    public byte[]? Signature { get; set; }
 }
 
+[ProtoContract]
 public record TransactionOutput
 {
+    [ProtoMember(1)]
     public required long Amount { get; init; }
+    [ProtoMember(2)]
     public required byte[] Address { get; init; }
 }
 

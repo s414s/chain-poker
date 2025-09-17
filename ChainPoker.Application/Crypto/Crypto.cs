@@ -1,5 +1,8 @@
-﻿using Org.BouncyCastle.Crypto.Parameters;
+﻿using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Digests;
+using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
+using Org.BouncyCastle.Math.EC.Rfc8032;
 using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Utilities.Encoders;
@@ -82,7 +85,7 @@ public readonly struct PrivateKey
     }
 
     // Get the 64-byte "libsodium-style" secret (seed || public)
-    public byte[] GetSeedPlusPublic()
+    public FullPublicKey GetSeedPlusPublic()
     {
         var priv = GenerateFromSeed(Seed);
 
@@ -95,7 +98,16 @@ public readonly struct PrivateKey
         Buffer.BlockCopy(pub, 0, fullKey, SeedLength, pub.Length);
         // fullKey is 64 bytes(like libsodium’s format)
 
-        return fullKey;
+        return new FullPublicKey(fullKey);
+    }
+
+    public PublicKey GetPublicKey()
+    {
+        var priv = GenerateFromSeed(Seed);
+
+        byte[] pub = priv.GeneratePublicKey().GetEncoded();
+
+        return new PublicKey(pub);
     }
 
     // Get the 64-byte "libsodium-style" secret (seed || public)
@@ -131,12 +143,36 @@ public readonly struct PrivateKey
     }
 }
 
-public readonly struct PubliKey(byte[] Key)
+public readonly struct PublicKey
 {
     public const int PubKeyLenght = 32;
-    public byte[] Key { get; } = Key;
+    public byte[] Key { get; }
+
+    public PublicKey(byte[] key)
+    {
+        if (key.Length != PubKeyLenght)
+            throw new ArgumentException($"Lenght must be {PubKeyLenght} bytes for Ed25519 public key.", nameof(key));
+
+        Key = key;
+    }
 
     public Address GetAddress() => new(Key[^Address.Lenght..]); //new(Key[(PubKeyLenght - Address.Lenght)..]);
+}
+
+public readonly struct FullPublicKey
+{
+    public const int FullPubKeyLenght = 64;
+    public byte[] Key { get; }
+
+    public FullPublicKey(byte[] key)
+    {
+        if (key.Length != FullPubKeyLenght)
+            throw new ArgumentException($"Lenght must be {FullPubKeyLenght} bytes for Ed25519 full public key.", nameof(key));
+
+        Key = key;
+    }
+
+    public Address GetAddress() => new(Key[^Address.Lenght..]);
 }
 
 public readonly struct Address(byte[] value)
@@ -145,5 +181,38 @@ public readonly struct Address(byte[] value)
     public byte[] Value { get; } = value;
 
     public override string ToString() => Encoding.UTF8.GetString(Value);
+}
+
+public readonly struct Signature
+{
+    public const int SignatureLenght = 64;
+    public byte[] Value { get; }
+
+    public Signature(byte[] value)
+    {
+        if (value.Length != SignatureLenght)
+            throw new ArgumentException("Lenght must be 64 bytes for Ed25519.", nameof(value));
+
+        Value = value;
+    }
+
+    public bool Verify(PublicKey pubKey, byte[] message)
+    {
+        //️ Ed25519 has variants.Verify with the same variant used for signing:
+        // pure: new Ed25519Signer()(no prehash)
+        // ph(prehash): new Ed25519phSigner()
+        // ctx(with context): new Ed25519ctxSigner(contextBytes)
+
+        byte[] signature = Value; /* 64 bytes from signer */
+        byte[] pubKey32 = pubKey.Key; /* 32-byte Ed25519 public key */
+
+        var pub = new Ed25519PublicKeyParameters(pubKey32, 0);
+        var verifier = new Ed25519Signer();   // Ed25519 "pure", no prehash, no context
+
+        verifier.Init(false, pub);            // false = verify
+        verifier.BlockUpdate(message, 0, message.Length);
+
+        return verifier.VerifySignature(signature);
+    }
 }
 
