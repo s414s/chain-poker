@@ -34,27 +34,7 @@ public class Transaction
         return SHA256.HashData(bytes);
     }
 
-    // returns a signature
-    public byte[] Sign(PrivateKey pk) => pk.Sign(HashTransactionCore());
-    //public byte[] Sign(PrivateKey pk) => pk.Sign(HashTransaction());
-
-
-    //public bool Verify()
-    //{
-    //    foreach (var input in Inputs)
-    //    {
-    //        if (input.Signature is null)
-    //            return false;
-
-    //        var sig = new Signature(input.Signature);
-    //        var pubKey = new PublicKey(input.PublicKey);
-
-    //        if (!sig.Verify(pubKey, HashTransaction()))
-    //            return false;
-    //    }
-
-    //    return true;
-    //}
+    public Signature Sign(PrivateKey pk) => new(pk.Sign(HashTransactionCore()));
 
     public bool Verify()
     {

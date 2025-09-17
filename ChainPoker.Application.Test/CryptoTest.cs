@@ -84,7 +84,7 @@ public class CryptoTest
         };
 
         // Act
-        input.Signature = transaction.Sign(fromPrivteKey);
+        input.Signature = transaction.Sign(fromPrivteKey).Value;
 
         // Assert
         Assert.True(transaction.Verify());
