@@ -1,0 +1,6 @@
+@ChainPoker.Presentation_HostAddress = http://localhost:5125
+
+GET {{ChainPoker.Presentation_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
