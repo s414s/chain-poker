@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 namespace ChainPoker.Application.Crypto;
 
 [ProtoContract]
-public class Transaction
+public record Transaction
 {
     [ProtoMember(1)]
     public required int Version { get; init; }
@@ -22,15 +22,10 @@ public class Transaction
 
     public byte[] HashTransactionCore()
     {
-        var signable = new Transaction
-        {
-            Version = Version,
-            Inputs = [.. Inputs.Select(i => i with { Signature = null })], // IMPORTANT: exclude from hash
-            Outputs = [.. Outputs.Select(o => o)],
-        };
+        // IMPORTANT: exclude signature from hash
+        var signable = this with { Inputs = [.. Inputs.Select(i => i with { Signature = null })] };
 
-        // Ensure your serializer is deterministic!
-        var bytes = ProtoHelper.ProtoSerialize(signable);
+        var bytes = ProtoHelper.ProtoSerialize(signable); // Ensure serializer is deterministic!
         return SHA256.HashData(bytes);
     }
 

@@ -10,10 +10,10 @@ public readonly struct Card
         //if (number is < 1 or > 13)
         //    throw new ArgumentOutOfRangeException(nameof(number), "Card number must be between 1 (Ace) and 13 (King).");
 
-        if (!Enum.IsDefined(typeof(Card), suit))
+        if (!Enum.IsDefined(suit))
             throw new ArgumentException("Invalid suit value.", nameof(suit));
 
-        if (!Enum.IsDefined(typeof(CardRank), rank))
+        if (!Enum.IsDefined(rank))
             throw new ArgumentException("Invalid suit value.", nameof(suit));
 
         Rank = rank;
@@ -32,11 +32,8 @@ public readonly struct Card
         return new Card(rank, suit);
     }
 
-    public static bool IsValid(CardRank rank, Card suit)
-    {
-        return Enum.IsDefined(typeof(CardRank), rank)
-            && Enum.IsDefined(typeof(Card), suit);
-    }
+    public static bool IsValid(CardRank rank, Suits suit)
+        => Enum.IsDefined(rank) && Enum.IsDefined(suit);
 
     /// <summary>
     /// Safe creation from numeric input (e.g., parsing). No exceptions, no invalid cards.
